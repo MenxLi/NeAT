@@ -309,7 +309,8 @@ int main(int argc, const char* argv[])
 
     std::string input_base  = "scenes/";
     std::string output_base = "scenes/";
-    Convert("Pepper", input_base + "/Pepper", output_base + "/pepper", ivec2(50, 20), ivec2(1880, 1400), 1);
+    // Convert("Pepper", input_base + "/Pepper", output_base + "/pepper", ivec2(50, 20), ivec2(1880, 1400), 1);
+    Convert("Test", input_base + "/Test", output_base + "/test", ivec2(-1, -1), ivec2(-1, -1), 1);
     // Convert(input_base + "/Teapot_90kV", output_base + "/teapot", ivec2(-1, -1), ivec2(-1, 1350), 1, 17500);
     return 0;
 //    Convert(input_base + "/marine_decoration", output_base + "/marine_decoration", ivec2(-1, -1), ivec2(-1, 1400), 1.);

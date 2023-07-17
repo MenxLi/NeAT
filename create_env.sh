@@ -3,7 +3,7 @@
 #!/bin/bash
 git submodule update --init --recursive --jobs 0
 
-CONDA_PATH=~/anaconda3/
+CONDA_PATH=~/miniconda3/
 
 if test -f "$CONDA_PATH/etc/profile.d/conda.sh"; then
     echo "Found Conda at $CONDA_PATH"

@@ -13,6 +13,14 @@ g++-9 --version # Should Print Version 9.4.0 or higher
 ./create_env.sh
 ```
 
+* Install dependencies
+
+```shell
+apt install unzip
+apt install pkg-config libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+conda install -c conda-forge gcc=12.1.0     # to solve: version `GLIBCXX_3.4.30' not found
+```
+
 * Install Pytorch
 
  ```shell
@@ -39,10 +47,17 @@ make -j10
 ## Run Instructions
 
 * Get Pepper dataset from here: https://repository.kaust.edu.sa/handle/10754/676019
-* Extract datasets
+* Extract datasets to `NeAT/scenes`
 * Update the `main()` of `nikon2neat.cpp` to point to the downloaded dataset directory (the output should be into NeAT/scenes)
 * Preprocess data using our nikon2neat programm:
- ```shell
+* Update configuration file in configs/
+* Run reconstruction
+```sh
+cd NeAT
+export LD_LIBRARY_PATH=~/miniconda3/envs/neat/lib
+./build/bin/nikon2neat && ./build/bin/reconstruct configs/pepper.ini
+```
+ <!-- ```shell
 mkdir scenes
 cd NeAT
 export LD_LIBRARY_PATH=~/anaconda3/envs/neat/lib
@@ -54,7 +69,7 @@ export LD_LIBRARY_PATH=~/anaconda3/envs/neat/lib
 cd NeAT
 export LD_LIBRARY_PATH=~/anaconda3/envs/neat/lib
 ./build/bin/reconstruct configs/pepper.ini
- ```
+ ``` -->
 * The result will be written to NeAT/Experiments
 * Use tensorboard for easy visualization:
  ```shell
