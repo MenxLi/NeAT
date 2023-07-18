@@ -10,7 +10,7 @@ from cbctrec.eval import Measure_Quality
 __NEAT_HOME = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(__NEAT_HOME, "Experiments", "Eval")
 
-def evalVolume(tgt_vol_pth: str, out_vol_pth: str):
+def evalVolume(tgt_vol_pth: str, out_vol_pth: str, out_dir: str = OUT_DIR):
     """Evaluate the volume reconstruction.
 
     Args:
@@ -40,16 +40,23 @@ def evalVolume(tgt_vol_pth: str, out_vol_pth: str):
     ssim = Measure_Quality(tgt_vol_np, out_vol_np, ["SSIMpytorch"]).item()
     print(f"PSNR/SSIM: {psnr:.3f}/{ssim:.3f}")
 
-    if not os.path.exists(OUT_DIR):
-        os.mkdir(OUT_DIR)
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir)
 
     # save to json file
-    with open(os.path.join(OUT_DIR, "eval.json"), "w") as f:
-        json.dump({"PSNR": psnr, "SSIM": ssim}, f)
+    with open(os.path.join(out_dir, "eval.json"), "w") as f:
+        json.dump({
+            "tgt_vol_pth": tgt_vol_pth,
+            "out_vol_pth": out_vol_pth,
+            "PSNR": psnr, 
+            "SSIM": ssim
+        }, f, indent=4)
 
     # concatentate tgt and out for visualization
     vis_out = np.concatenate((tgt_vol_np, out_vol_np), axis=2)
-    saveVideo(vis_out, os.path.join(OUT_DIR, "eval.mp4"), fps=10)
+    saveVideo(vis_out, os.path.join(out_dir, "compare.mp4"), fps=10)
+
+    print("Results saved to: ", out_dir)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -67,4 +74,4 @@ if __name__ == "__main__":
 
     # out_vol_pth = os.path.join(__NEAT_HOME, "Experiments", args.exp, f"ep{args.epoch:04d}", "volume_test", "volume.pt")
     out_vol_pth = os.path.join(last_epoch_dir, "volume_test", "volume.pt")
-    evalVolume(args.ds, out_vol_pth)
+    evalVolume(args.ds, out_vol_pth, out_dir=os.path.join(exp_dir, "eval"))

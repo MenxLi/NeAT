@@ -46,16 +46,21 @@ make -j10
 
 ## Run Instructions
 
-* Get Pepper dataset from here: https://repository.kaust.edu.sa/handle/10754/676019
-* Extract datasets to `NeAT/scenes`
-* Update the `main()` of `nikon2neat.cpp` to point to the downloaded dataset directory (the output should be into NeAT/scenes)
-* Preprocess data using our nikon2neat programm:
-* Update configuration file in configs/
+<!-- * Get Pepper dataset from here: https://repository.kaust.edu.sa/handle/10754/676019 -->
+<!-- * Extract datasets to `NeAT/scenes` -->
+<!-- * Update the `main()` of `nikon2neat.cpp` to point to the downloaded dataset directory (the output should be into NeAT/scenes) -->
+<!-- * Preprocess data using our nikon2neat programm:
+* Update configuration file in configs/ -->
+
+* Run dataset conversion script:
+```sh
+CBCTREC_CONFIG=... python dataConversion --ct-path <path-to-dicom> --ds-path <path-to-dataset> [--half-range]
+```
+
 * Run reconstruction
 ```sh
-cd NeAT
 export LD_LIBRARY_PATH=~/miniconda3/envs/neat/lib
-./build/bin/nikon2neat && ./build/bin/reconstruct configs/pepper.ini
+./build/bin/nikon2neat && ./build/bin/reconstruct configs/test_<...>.ini
 ```
  <!-- ```shell
 mkdir scenes
@@ -72,8 +77,14 @@ export LD_LIBRARY_PATH=~/anaconda3/envs/neat/lib
  ``` -->
 * The result will be written to NeAT/Experiments
 * Use tensorboard for easy visualization:
- ```shell
+```shell
 conda activate neat
 cd NeAT
 tensorboard --logdir Experiments/ --samples_per_plugin images=100
- ```
+```
+
+* Evaluation
+```sh
+python eval.py --exp <exp_dir> --ds <cbctrec_dataset.npz>
+```
+* The result will be written to NeAT/Experiments/<exp_dir>/eval
