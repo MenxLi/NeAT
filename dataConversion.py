@@ -7,8 +7,7 @@ from cbctrec.conf.loader import ProjectConfig
 from cbctrec.dataPrep import loadDataset, makeDataset
 import torch, tifffile
 import numpy as np
-import matplotlib.pyplot as plt
-import os, sys
+import os, sys, argparse, configparser, shutil
 
 def cvtConfig(config: ProjectConfig, name: str):
     # taken from example xtekct file
@@ -65,7 +64,6 @@ def cvtConfig(config: ProjectConfig, name: str):
     _src_to_detector = config.data_simulation_config["camera_distance"] * 2
     _angular_step = 360 / config.data_simulation_config["n_total_projection"] if config.data_simulation_config["full_range"] else \
         180 / config.data_simulation_config["n_total_projection"]
-    assert _angular_step % 1 == 0, "Angular step ...somehow... must be integer"
     update_config = dict(
         Name = "cbctrec",
         VoxelsX = config.data_simulation_config["volume_shape"][0],
@@ -145,31 +143,81 @@ def toXtekctFile(xtekct_config: dict, save_path: str):
             f.write(f"{key}={value}\n")
         f.write(__tail)
 
-if __name__ == "__main__":
-    cbct_path = "/storage/Data/cbctrec_data/99cab51a7f78ec04ef5b0431f07a6737"
-    ds_path = "/storage/Data/cbctrec_data/test-half.npz"
-    # ds_path = "/storage/Data/cbctrec_data/test.npz"
-    # ds_path = "/storage/Data/cbctrec_data/test-half-120.npz"
-    # ds_path = "/storage/Data/cbctrec_data/test-half-360.npz"
+TEMPLATE_CONFIG_NAME = "_template.ini"
+def createExpConfig(exp_config_dir: str, name: str, split_name: str):
+    template_config_file = os.path.join(exp_config_dir, TEMPLATE_CONFIG_NAME)
+    __n_proj = split_name[len("exp_uniform_"):]
+    dst_config_file = os.path.join(exp_config_dir, f"{name.lower()}_{__n_proj}.ini")
 
-    # print("Making dataset...")
-    # from cbctrec.config import config
-    # config.data_simulation_config["full_range"] = False
-    # config.data_simulation_config["n_total_projection"] = 180
-    # makeDataset(cbct_path, ds_path, config)
+    exp_config = configparser.ConfigParser()
+    exp_config.read(template_config_file)
+    exp_config["TrainParams"]["name"] = name.lower() + "_" + __n_proj
+    exp_config["TrainParams"]["split_name"] = split_name
+    exp_config["TrainParams"]["scene_name"] = name.lower()
+
+    # save the config file
+    with open(dst_config_file, "w") as f:
+        exp_config.write(f)
+
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ct-path", type=str, default=None, help="Path to the CBCT data, if specified, will first generate a cbctrec dataset from the CT data")
+    parser.add_argument("--ds-path", type=str, default=None, help="Path to the intermediate cbctrec dataset")
+    parser.add_argument("--name", type=str, default="Test", help="Name of the generated NeAT dataset, should be set according to nikon2neat.cpp")
+    parser.add_argument("--half-range", action="store_true", help="Whether to use half range data, if the dataset is full range, will only use the first half of the projections")
+    args = parser.parse_args()
+
+    NAME: str = args.name
+    HALF_RANGE = args.half_range
+    # assert capital letter at the beginning
+    assert NAME[0].isupper(), "Name must start with a capital letter"
+    cbct_path = args.ct_path
+    ds_path = args.ds_path
+    assert ds_path is not None, "Please specify the path to the intermediate cbctrec dataset"
+
+    # cbct_path = "/storage/Data/cbctrec_data/99cab51a7f78ec04ef5b0431f07a6737"
+    # ds_path = "/storage/Data/cbctrec_data/test-half.npz"
+
+    # NeAT somehow requires full circular data...
+    # if the dataset is half range, we need to double the number of projections to adapt to NeAT
+    if cbct_path is not None:
+        from cbctrec.config import config
+        if not config.data_simulation_config["full_range"]:
+            config.data_simulation_config["full_range"] = True
+            config.data_simulation_config["n_total_projection"] *= 2
+            print("Compromising half range data to full range data")
+            assert HALF_RANGE, "If the dataset is half range, please specify --half-range"
+
+        print(f"Making dataset with {'full' if config.data_simulation_config['full_range'] else 'half'} range {config.data_simulation_config['n_total_projection']} projections")
+        makeDataset(cbct_path, ds_path, config)
 
     ds = loadDataset(ds_path)
+    assert ds["config"].data_simulation_config["full_range"] == True, "Dataset must be full range!"
 
-    # create dst dir
-    NAME = "Test"
-    assert NAME[0].isupper()     # assert capital letter at the beginning
-    dst_dir = f"/storage/NeAT/scenes/{NAME}"
-    if not os.path.exists(dst_dir):
-        os.mkdir(dst_dir)
+    # Aim paths
+    __NEAT_HOME = os.path.dirname(os.path.abspath(__file__))
+    nikon_dst_dir = os.path.join(__NEAT_HOME, "scenes", NAME)           # save nikon version of the dataset
+    neat_dst_dir = os.path.join(__NEAT_HOME, "scenes", NAME.lower())    # save neat version of the dataset
+    if os.path.exists(nikon_dst_dir) or os.path.exists(neat_dst_dir):
+        if input(f"Dataset {NAME} already exists, overwrite? (y/n)") == "y":
+            if os.path.exists(nikon_dst_dir):
+                shutil.rmtree(nikon_dst_dir)
+            if os.path.exists(neat_dst_dir):
+                shutil.rmtree(neat_dst_dir)
+        else:
+            print(f"Dataset {NAME} already exists, aborting")
+            exit()
+
+    exp_config_dir = os.path.join(__NEAT_HOME, "configs")
+    img_dst_dir = os.path.join(nikon_dst_dir, "projections")  # save tiff images
+    for _pth in [nikon_dst_dir, img_dst_dir, neat_dst_dir]:
+        if not os.path.exists(_pth):
+            os.mkdir(_pth)
 
     # save xtekct config
     xtekct_config = cvtConfig(ds["config"], NAME)
-    toXtekctFile(xtekct_config, f"{dst_dir}/{NAME}_CT_parameters.xtekct")
+    toXtekctFile(xtekct_config, os.path.join(nikon_dst_dir, f"{NAME}_CT_parameters.xtekct"))
 
     images: list[torch.Tensor] = ds["projections"]
     images_tensor = torch.stack(images, dim=0)
@@ -182,47 +230,52 @@ if __name__ == "__main__":
     images_tensor = images_tensor.to(torch.int16)
 
     # save images as tiff
-    img_dst_dir = f"{dst_dir}/projections"
     if not os.path.exists(img_dst_dir):
         os.mkdir(img_dst_dir)
     for i, img in enumerate(images_tensor):
-        # save as unsigned 8-bit integer
         D_TYPE = np.uint16
         tifffile.imwrite(f"{img_dst_dir}/{NAME}_{i:04d}.tif", img.cpu().numpy().astype(D_TYPE), dtype=D_TYPE)
     
-    # create exp file
-    neat_dst_dir = f"/storage/NeAT/scenes/{NAME.lower()}"
+    # split dataset
     if not os.path.exists(neat_dst_dir):
         os.mkdir(neat_dst_dir)
     exp_n_images = [15, 20, 30, 40, 60]
     exp_dir_names = [f"exp_uniform_{i}" for i in exp_n_images]
     n_total_projection = ds["config"].data_simulation_config["n_total_projection"]
+
+    if HALF_RANGE:
+        __n_total_projection = n_total_projection//2
+    else:
+        __n_total_projection = n_total_projection
+
     for _n in exp_n_images:
-        assert n_total_projection % _n == 0 or n_total_projection // _n > 2
+        assert __n_total_projection % _n == 0 or __n_total_projection // _n > 2
     for exp_dir_name, n_image in zip(exp_dir_names, exp_n_images):
-        exp_dir = f"{neat_dst_dir}/{exp_dir_name}"
+        exp_dir = os.path.join(neat_dst_dir, exp_dir_name)
         if not os.path.exists(exp_dir):
             os.mkdir(exp_dir)
         # create exp config
         train_ims = []
         eval_ims = []
-        step = n_total_projection / n_image
+        step = __n_total_projection / n_image
 
         __n = 0
-        for i in range(n_total_projection):
+        for i in range(__n_total_projection):
             if i < __n:
                 eval_ims.append(i)
             else:
                 train_ims.append(i)
                 __n += step
 
-        with open(f"{exp_dir}/train.txt", "w") as f:
+        with open(os.path.join(exp_dir, "train.txt"), "w") as f:
             for i in train_ims:
                 f.write(f"{i}\n")
-        with open(f"{exp_dir}/eval.txt", "w") as f:
+        with open(os.path.join(exp_dir, "eval.txt"), "w") as f:
             for i in eval_ims:
                 f.write(f"{i}\n")
+    
+    # create exp config
+    for n_image in exp_n_images:
+        createExpConfig(exp_config_dir, NAME, f"exp_uniform_{n_image}")
 
-
-
-
+    print("Done!")
