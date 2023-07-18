@@ -177,11 +177,15 @@ class Trainer
                             auto [volume_density, volume_node_id, volume_valid] = neural_geometry->UniformSampledVolume(
                                 {out_size, out_size, out_size}, scene->num_channels);
                             SaveHDRImageTensor(volume_density, volume_out_dir + "/volume.hdr");
+
+                            // save volume density as torch file
+                            std::cout << "saving volume as .pt..." << std::endl;
+                            torch::save(volume_density, volume_out_dir + "/volume.pt");
                         }
-                        else
-                        {
-                            volume_out_dir = "";
-                        }
+                        // else
+                        // {
+                        //     volume_out_dir = "";
+                        // }
 
                         neural_geometry->SaveVolume(tblogger.get(), cp_str + "/volume" + "/" + scene->scene_name,
                                                     volume_out_dir, scene->num_channels,
