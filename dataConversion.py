@@ -64,6 +64,9 @@ def cvtConfig(config: ProjectConfig, name: str):
     _src_to_detector = config.data_simulation_config["camera_distance"] * 2
     _angular_step = 360 / config.data_simulation_config["n_total_projection"] if config.data_simulation_config["full_range"] else \
         180 / config.data_simulation_config["n_total_projection"]
+    assert config.projection_config["im_shape_HW"][0] == config.projection_config["im_shape_HW"][1], "Only square image supported, not sure about axis order"
+    assert config.data_simulation_config["volume_shape"][0] == config.data_simulation_config["volume_shape"][1] == config.data_simulation_config["volume_shape"][2], \
+        "Only cubic volume supported, not sure about axis order"
     update_config = dict(
         Name = "cbctrec",
         VoxelsX = config.data_simulation_config["volume_shape"][0],
