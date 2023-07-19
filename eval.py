@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 import numpy as np
 import os, argparse, json
 from cbctrec.dataPrep import loadDataset
@@ -28,12 +29,17 @@ def evalVolume(tgt_vol_pth: str, out_vol_pth: str, out_dir: str = OUT_DIR):
     def normalize(x):
         return (x - x.min()) / (x.max() - x.min())
     
-    tgt_vol_np = normalize(tgt_vol).detach().cpu().numpy()
-    out_vol_np = normalize(out_vol).detach().cpu().numpy()
-
     # print(tgt_vol.shape)
     # print(out_vol.shape)
     # import pdb; pdb.set_trace()
+
+    tgt_vol = normalize(tgt_vol)
+    out_vol = normalize(out_vol)
+    # out_vol = autoCalibrate(out_vol.cuda(), tgt_vol.cuda())
+
+    tgt_vol_np = tgt_vol.detach().cpu().numpy()
+    out_vol_np = out_vol.detach().cpu().numpy()
+
     assert tgt_vol.shape == out_vol.shape
 
     psnr = Measure_Quality(tgt_vol_np, out_vol_np, ["PSNRpytorch1"]).item()
@@ -57,6 +63,49 @@ def evalVolume(tgt_vol_pth: str, out_vol_pth: str, out_dir: str = OUT_DIR):
     saveVideo(vis_out, os.path.join(out_dir, "compare.mp4"), fps=10)
 
     print("Results saved to: ", out_dir)
+
+def autoCalibrate(vol: torch.Tensor, aim_vol: torch.Tensor, sample_step: int = 2, apply_shift: bool = False):
+    """
+    Automatically calibrate the volume to match the aim_vol.
+    By:
+        1. Find the best shift and scale to match the aim_vol using Gradient Descent.
+        2. Apply the shift and scale to the vol.
+    """
+    class Calibrate(nn.Module):
+        def __init__(self):
+            super().__init__()
+            self.shift = nn.Parameter(torch.zeros(1), requires_grad=apply_shift)
+            self.scale = nn.Parameter(torch.ones(1))
+        
+        def forward(self, x):
+            return self.scale * x + self.shift
+    
+    calibrator = Calibrate().to(vol.device)
+    optimizer = torch.optim.Adam(calibrator.parameters(), lr=1e-3)
+    # loss_fn = nn.L1Loss()
+
+    vol_sample = vol[::sample_step, ::sample_step, ::sample_step]
+    aim_vol_sample = aim_vol[::sample_step, ::sample_step, ::sample_step]
+
+    class DistanceLoss(nn.Module):
+        def __init__(self):
+            super().__init__()
+        
+        def forward(self, x: torch.Tensor, y: torch.Tensor):
+            return (x.mean() - y.mean()).abs() + (x.std() - y.std()).abs()
+    loss_fn = DistanceLoss()
+
+    print("Auto-calibrating...")
+    __n_epoch = 1000
+    for i in range(__n_epoch):
+        optimizer.zero_grad()
+        loss = loss_fn(calibrator(vol_sample), aim_vol_sample)
+        loss.backward()
+        optimizer.step()
+        if i % 100 == 0:
+            print(f"[{int(100*i/__n_epoch):02d}%] Loss: {loss.item():.3f}", end="\r")
+    print("Learned shift and scale: ", calibrator.shift.item(), calibrator.scale.item())
+    return calibrator(vol).detach()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
