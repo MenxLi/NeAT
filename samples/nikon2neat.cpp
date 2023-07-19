@@ -104,6 +104,19 @@ void Convert(std::string dataset_name, std::string kaust_dir, std::string out_di
     auto image_names = dir.getFilesEnding(".tif");
     std::sort(image_names.begin(), image_names.end());
 
+    // if volume_gt.pt exists in the scene_path, copy it to the out_dir and set out_params.volume_file = "volume_gt.pt"
+    std::cout<<"Finding volume_gt.bin in "<< scene_path + "/volume_gt.bin" <<std::endl;
+    // if (dir.existsFile(scene_path + "/volume_gt.pt"))
+    if (std::filesystem::exists(scene_path + "/volume_gt.bin"))
+    {
+        std::cout << "Found volume_gt.bin" << std::endl;
+        std::filesystem::copy_file(scene_path + "/volume_gt.bin", out_dir + "/volume_gt.bin",
+                                   std::filesystem::copy_options::overwrite_existing);
+        out_params.volume_file = "volume_gt.bin";
+    }
+    else{
+        std::cout << "Not Found volume_gt.bin" << std::endl;
+    }
 
     auto ct_params = XTekCT(scene_path + "/" + dataset_name + "_CT_parameters.xtekct");
 

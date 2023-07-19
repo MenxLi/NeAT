@@ -458,6 +458,7 @@ class Trainer
         std::string name = ts.scene->scene_name;
         auto target      = ts.scene->ground_truth_volume;
 
+        std::cout << "Evaluating volume for scene " << name << "::Sampling size: "<< target.size(1) << "x" << target.size(2) << "x" << target.size(3) << std::endl;
         auto [volume, volume_node_id, volume_valid] = ts.neural_geometry->UniformSampledVolume(
             {target.size(1), target.size(2), target.size(3)}, ts.scene->num_channels);
 

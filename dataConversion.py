@@ -206,8 +206,10 @@ if __name__ == "__main__":
         if input(f"Dataset {NAME} already exists, overwrite? (y/n)") == "y":
             if os.path.exists(nikon_dst_dir):
                 shutil.rmtree(nikon_dst_dir)
+                print(f"Removed {nikon_dst_dir}")
             if os.path.exists(neat_dst_dir):
                 shutil.rmtree(neat_dst_dir)
+                print(f"Removed {neat_dst_dir}")
         else:
             print(f"Dataset {NAME} already exists, aborting")
             exit()
@@ -222,14 +224,20 @@ if __name__ == "__main__":
     xtekct_config = cvtConfig(ds["config"], NAME)
     toXtekctFile(xtekct_config, os.path.join(nikon_dst_dir, f"{NAME}_CT_parameters.xtekct"))
 
+    # save volume
+    _gt_volume = ds["volume"].transpose(2,0).transpose(2,1).flip(1).unsqueeze(0)
+    assert _gt_volume.shape == (1, 256, 256, 256), "Volume shape must be set according to SceneBase.cpp"
+    _gt_volume.detach().cpu().to(torch.float32).contiguous().numpy().tofile(os.path.join(nikon_dst_dir, f"volume_gt.bin"))
+
     images: list[torch.Tensor] = ds["projections"]
     images_tensor = torch.stack(images, dim=0)
-    # normalize images
-    images_tensor = (images_tensor - images_tensor.min()) / (images_tensor.max() - images_tensor.min())
-    images_tensor = 1 - images_tensor
+
     MAX_VAL = 64000     # White level?
-    MIN_VAL = 1000
-    images_tensor = images_tensor * (MAX_VAL-MIN_VAL) + MIN_VAL
+    images_tensor = 1 - images_tensor
+    images_tensor = (images_tensor - images_tensor.min()) / (images_tensor.max() - images_tensor.min())
+
+    # images_tensor = (1-images_tensor) * MAX_VAL
+    images_tensor = images_tensor * MAX_VAL
     images_tensor = images_tensor.to(torch.int16)
 
     # save images as tiff
@@ -243,14 +251,17 @@ if __name__ == "__main__":
     if not os.path.exists(neat_dst_dir):
         os.mkdir(neat_dst_dir)
     exp_n_images = [15, 20, 30, 40, 60]
-    exp_dir_names = [f"exp_uniform_{i}" for i in exp_n_images]
     n_total_projection = ds["config"].data_simulation_config["n_total_projection"]
 
     if HALF_RANGE:
         __n_total_projection = n_total_projection//2
     else:
         __n_total_projection = n_total_projection
+    
+    if __n_total_projection >= 2*exp_n_images[-1]:
+        exp_n_images.append(2*exp_n_images[-1])
 
+    exp_dir_names = [f"exp_uniform_{i}" for i in exp_n_images]
     for _n in exp_n_images:
         assert __n_total_projection % _n == 0 or __n_total_projection // _n > 2
     for exp_dir_name, n_image in zip(exp_dir_names, exp_n_images):
@@ -276,6 +287,7 @@ if __name__ == "__main__":
         with open(os.path.join(exp_dir, "eval.txt"), "w") as f:
             for i in eval_ims:
                 f.write(f"{i}\n")
+        print(f"Created {exp_dir_name} with {len(train_ims)} training images and {len(eval_ims)} evaluation images")
     
     # create exp config
     for n_image in exp_n_images:

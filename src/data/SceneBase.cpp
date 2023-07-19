@@ -327,7 +327,25 @@ SceneBase::SceneBase(std::string _scene_dir)
     if (!dataset_params.volume_file.empty())
     {
         CHECK(std::filesystem::exists(scene_path + "/" + dataset_params.volume_file));
-        torch::load(ground_truth_volume, scene_path + "/" + dataset_params.volume_file);
+        // torch::load(ground_truth_volume, scene_path + "/" + dataset_params.volume_file);
+        // std::cout << "Ground Truth Volume " << TensorInfo(ground_truth_volume) << std::endl;
+
+        std::string volume_bin_path = scene_path + "/" + dataset_params.volume_file;
+        std::ifstream file(volume_bin_path, std::ios::binary);
+        if (!file.is_open()) { std::cout << "Could not open file " << volume_bin_path << std::endl; exit(-1); }
+
+        // Determine the size of the file
+        file.seekg(0, std::ios::end);
+        std::streampos fileSize = file.tellg();
+        file.seekg(0, std::ios::beg);
+
+        // Read the binary data into a vector
+        std::vector<char> buffer(fileSize);
+        file.read(buffer.data(), fileSize);
+
+        // Access the tensor data from the buffer
+        float* tensorData = reinterpret_cast<float*>(buffer.data());
+        ground_truth_volume = torch::from_blob(tensorData, {1, 256, 256, 256}, torch::kFloat32).clone();
         std::cout << "Ground Truth Volume " << TensorInfo(ground_truth_volume) << std::endl;
     }
 
