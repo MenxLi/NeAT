@@ -232,12 +232,11 @@ if __name__ == "__main__":
     images: list[torch.Tensor] = ds["projections"]
     images_tensor = torch.stack(images, dim=0)
 
-    MAX_VAL = 64000     # White level?
-    images_tensor = 1 - images_tensor
-    images_tensor = (images_tensor - images_tensor.min()) / (images_tensor.max() - images_tensor.min())
+    MAX_VAL = 64000     # White level
 
-    # images_tensor = (1-images_tensor) * MAX_VAL
-    images_tensor = images_tensor * MAX_VAL
+    # Refer to SceneBase.cpp
+    images_tensor = MAX_VAL * 10**(-images_tensor)
+
     images_tensor = images_tensor.to(torch.int16)
 
     # save images as tiff

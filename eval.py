@@ -33,8 +33,8 @@ def evalVolume(tgt_vol_pth: str, out_vol_pth: str, out_dir: str = OUT_DIR):
     # print(out_vol.shape)
     # import pdb; pdb.set_trace()
 
-    tgt_vol = normalize(tgt_vol)
-    out_vol = normalize(out_vol)
+    # tgt_vol = normalize(tgt_vol)
+    # out_vol = normalize(out_vol)
     # out_vol = autoCalibrate(out_vol.cuda(), tgt_vol.cuda())
 
     tgt_vol_np = tgt_vol.detach().cpu().numpy()
