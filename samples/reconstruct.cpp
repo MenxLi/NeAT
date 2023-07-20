@@ -167,16 +167,17 @@ class Trainer
                         std::filesystem::create_directories(volume_out_dir);
 
                         int out_size = params->train_params.output_volume_size;
-                        if (epoch_id == params->train_params.num_epochs)
+                        if (epoch_id == params->train_params.num_epochs || (epoch_id+1) % 5 == 0)
                         {
                             // double resolution in last epoch
                             out_size *= 2;
 
-                            // save last epoch as hdr image as well
-                            std::cout << "saving volume as .hdr..." << std::endl;
                             auto [volume_density, volume_node_id, volume_valid] = neural_geometry->UniformSampledVolume(
                                 {out_size, out_size, out_size}, scene->num_channels);
-                            SaveHDRImageTensor(volume_density, volume_out_dir + "/volume.hdr");
+
+                            // save last epoch as hdr image as well
+                            // std::cout << "saving volume as .hdr..." << std::endl;
+                            // SaveHDRImageTensor(volume_density, volume_out_dir + "/volume.hdr");
 
                             // save volume density as torch file
                             std::cout << "saving volume as .pt..." << std::endl;
