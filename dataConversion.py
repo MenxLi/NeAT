@@ -4,7 +4,7 @@ Creates CT_parameters.xtekct file
 """
 
 from cbctrec.conf.loader import ProjectConfig
-from cbctrec.dataPrep import loadDataset, makeDataset
+from cbctrec.dataPrep import loadDataset, makeDataset, makeDatasetFromVolume
 import torch, tifffile
 import numpy as np
 import os, sys, argparse, configparser, shutil
@@ -165,9 +165,10 @@ def createExpConfig(exp_config_dir: str, name: str, split_name: str):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--ct-path", type=str, default=None, help="Path to the CBCT data, if specified, will first generate a cbctrec dataset from the CT data")
-    parser.add_argument("--ds-path", type=str, default=None, help="Path to the intermediate cbctrec dataset")
     parser.add_argument("--name", type=str, default="Test", help="Name of the generated NeAT dataset, should be set according to nikon2neat.cpp")
+    parser.add_argument("--ds-path", type=str, required=True, help="Path to the intermediate cbctrec dataset")
+    parser.add_argument("--ct-path", type=str, default=None, help="Path to the CBCT data (DICOM) or an existing npz cbctrec dataset\
+                        If specified, will first generate a new cbctrec dataset to ensure full circular range from the CT data")
     parser.add_argument("--half-range", action="store_true", help="Whether to use half range data, if the dataset is full range, will only use the first half of the projections")
     args = parser.parse_args()
 
@@ -177,23 +178,35 @@ if __name__ == "__main__":
     assert NAME[0].isupper(), "Name must start with a capital letter"
     cbct_path = args.ct_path
     ds_path = args.ds_path
-    assert ds_path is not None, "Please specify the path to the intermediate cbctrec dataset"
-
-    # cbct_path = "/storage/Data/cbctrec_data/99cab51a7f78ec04ef5b0431f07a6737"
-    # ds_path = "/storage/Data/cbctrec_data/test-half.npz"
 
     # NeAT somehow requires full circular data...
     # if the dataset is half range, we need to double the number of projections to adapt to NeAT
     if cbct_path is not None:
-        from cbctrec.config import config
-        if not config.data_simulation_config["full_range"]:
-            config.data_simulation_config["full_range"] = True
-            config.data_simulation_config["n_total_projection"] *= 2
-            print("Compromising half range data to full range data")
-            assert HALF_RANGE, "If the dataset is half range, please specify --half-range"
+        if os.path.isdir(cbct_path):
+            from cbctrec.config import config
+            if not config.data_simulation_config["full_range"]:
+                config.data_simulation_config["full_range"] = True
+                config.data_simulation_config["n_total_projection"] *= 2
+                print("Compromising half range data to full range data")
+                assert HALF_RANGE, "If the dataset is half range, please specify --half-range"
 
-        print(f"Making dataset with {'full' if config.data_simulation_config['full_range'] else 'half'} range {config.data_simulation_config['n_total_projection']} projections")
-        makeDataset(cbct_path, ds_path, config)
+            print(f"Making dataset with {'full' if config.data_simulation_config['full_range'] else 'half'} range {config.data_simulation_config['n_total_projection']} projections")
+            makeDataset(cbct_path, ds_path, config)
+
+        elif os.path.isfile(cbct_path) and cbct_path.endswith(".npz"):
+            # create a new dataset from the cbctrec dataset
+            _old_ds = loadDataset(cbct_path)
+            config = _old_ds["config"]
+            if not config.data_simulation_config["full_range"]:
+                config.data_simulation_config["full_range"] = True
+                config.data_simulation_config["n_total_projection"] *= 2
+                print("Compromising half range data to full range data")
+                assert HALF_RANGE, "If the dataset is half range, please specify --half-range"
+            print(f"Making dataset with {'full' if config.data_simulation_config['full_range'] else 'half'} range {config.data_simulation_config['n_total_projection']} projections")
+            makeDatasetFromVolume(_old_ds["volume"].detach().cpu().numpy(), ds_path, config)
+        
+        else:
+            raise ValueError("Unsupported cbct data format")
 
     ds = loadDataset(ds_path)
     assert ds["config"].data_simulation_config["full_range"] == True, "Dataset must be full range!"
@@ -257,7 +270,7 @@ if __name__ == "__main__":
     else:
         __n_total_projection = n_total_projection
     
-    if __n_total_projection >= 2*exp_n_images[-1]:
+    if __n_total_projection > 2*exp_n_images[-1]:
         exp_n_images.append(2*exp_n_images[-1])
 
     exp_dir_names = [f"exp_uniform_{i}" for i in exp_n_images]
