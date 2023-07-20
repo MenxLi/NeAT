@@ -165,7 +165,7 @@ def createExpConfig(exp_config_dir: str, name: str, split_name: str):
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--name", type=str, default="Test", help="Name of the generated NeAT dataset, should be set according to nikon2neat.cpp")
+    parser.add_argument("--name", type=str, required=True, help="Name of the generated NeAT dataset, must start with a capital letter")
     parser.add_argument("--ds-path", type=str, required=True, help="Path to the intermediate cbctrec dataset")
     parser.add_argument("--ct-path", type=str, default=None, help="Path to the CBCT data (DICOM) or an existing npz cbctrec dataset\
                         If specified, will first generate a new cbctrec dataset to ensure full circular range from the CT data")
