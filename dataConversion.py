@@ -148,7 +148,7 @@ def toXtekctFile(xtekct_config: dict, save_path: str):
 
 TEMPLATE_CONFIG_NAME = "_template.ini"
 def createExpConfig(exp_config_dir: str, name: str, split_name: str):
-    template_config_file = os.path.join(exp_config_dir, TEMPLATE_CONFIG_NAME)
+    template_config_file = os.path.join(exp_config_dir, "..", TEMPLATE_CONFIG_NAME)
     __n_proj = split_name[len("exp_uniform_"):]
     dst_config_file = os.path.join(exp_config_dir, f"{name.lower()}_{__n_proj}.ini")
 
@@ -214,9 +214,9 @@ if __name__ == "__main__":
             print(f"Dataset {NAME} already exists, aborting")
             exit()
 
-    exp_config_dir = os.path.join(__NEAT_HOME, "configs")
+    exp_config_dir = os.path.join(__NEAT_HOME, "configs", "exp")
     img_dst_dir = os.path.join(nikon_dst_dir, "projections")  # save tiff images
-    for _pth in [nikon_dst_dir, img_dst_dir, neat_dst_dir]:
+    for _pth in [nikon_dst_dir, img_dst_dir, neat_dst_dir, exp_config_dir]:
         if not os.path.exists(_pth):
             os.mkdir(_pth)
 

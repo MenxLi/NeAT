@@ -60,7 +60,7 @@ CBCTREC_CONFIG=... python dataConversion --ct-path <path-to-dicom> --ds-path <pa
 * Run reconstruction
 ```sh
 export LD_LIBRARY_PATH=~/miniconda3/envs/neat/lib
-./build/bin/nikon2neat && ./build/bin/reconstruct configs/test_<...>.ini
+./build/bin/nikon2neat && ./build/bin/reconstruct configs/exp/<...>.ini
 ```
  <!-- ```shell
 mkdir scenes
