@@ -163,7 +163,8 @@ class Trainer
                     auto neural_geometry = ts.neural_geometry;
                     if (params->train_params.output_volume_size > 0)
                     {
-                        auto volume_out_dir = ep_dir + "/volume_" + scene->scene_name + "/";
+                        // auto volume_out_dir = ep_dir + "/volume_" + scene->scene_name + "/";
+                        auto volume_out_dir = ep_dir + "/volume/";
                         std::filesystem::create_directories(volume_out_dir);
 
                         int out_size = params->train_params.output_volume_size;

@@ -11,7 +11,7 @@ from cbctrec.eval import Measure_Quality
 __NEAT_HOME = os.path.dirname(os.path.abspath(__file__))
 OUT_DIR = os.path.join(__NEAT_HOME, "Experiments", "Eval")
 
-def evalVolume(tgt_vol_pth: str, out_vol_pth: str, out_dir: str = OUT_DIR):
+def evalVolume(tgt_vol_pth: str, out_vol_pth: str, out_dir: str = OUT_DIR, save_video: bool = True):
     """Evaluate the volume reconstruction.
 
     Args:
@@ -26,15 +26,6 @@ def evalVolume(tgt_vol_pth: str, out_vol_pth: str, out_dir: str = OUT_DIR):
     raw = torch.jit.load(out_vol_pth).state_dict(); assert len(raw) == 1
     out_vol: torch.Tensor = raw["0"].squeeze()
 
-    def normalize(x):
-        return (x - x.min()) / (x.max() - x.min())
-    
-    # print(tgt_vol.shape)
-    # print(out_vol.shape)
-    # import pdb; pdb.set_trace()
-
-    # tgt_vol = normalize(tgt_vol)
-    # out_vol = normalize(out_vol)
     # out_vol = autoCalibrate(out_vol.cuda(), tgt_vol.cuda())
 
     tgt_vol_np = tgt_vol.detach().cpu().numpy()
@@ -59,8 +50,9 @@ def evalVolume(tgt_vol_pth: str, out_vol_pth: str, out_dir: str = OUT_DIR):
         }, f, indent=4)
 
     # concatentate tgt and out for visualization
-    vis_out = np.concatenate((tgt_vol_np, out_vol_np), axis=2)
-    saveVideo(vis_out, os.path.join(out_dir, "compare.mp4"), fps=10)
+    if save_video:
+        vis_out = np.concatenate((tgt_vol_np, out_vol_np), axis=2)
+        saveVideo(vis_out, os.path.join(out_dir, "compare.mp4"), fps=10)
 
     print("Results saved to: ", out_dir)
 
@@ -121,6 +113,11 @@ if __name__ == "__main__":
     epoch_dirs.sort()
     last_epoch_dir = epoch_dirs[-1]
 
-    # out_vol_pth = os.path.join(__NEAT_HOME, "Experiments", args.exp, f"ep{args.epoch:04d}", "volume_test", "volume.pt")
-    out_vol_pth = os.path.join(last_epoch_dir, "volume_test", "volume.pt")
-    evalVolume(args.ds, out_vol_pth, out_dir=os.path.join(exp_dir, "eval"))
+    for dir_pth in epoch_dirs:
+        out_vol_pth = os.path.join(dir_pth, "volume", "volume.pt")
+        if os.path.exists(out_vol_pth):
+            evalVolume(args.ds, out_vol_pth, out_dir=os.path.join(exp_dir, "eval-{}".format(os.path.basename(dir_pth))) , save_video=False)
+
+    out_vol_pth = os.path.join(last_epoch_dir, "volume", "volume.pt")
+    if os.path.exists(out_vol_pth):
+        evalVolume(args.ds, out_vol_pth, out_dir=os.path.join(exp_dir, "eval"), save_video=True)
