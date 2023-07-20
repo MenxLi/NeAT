@@ -165,6 +165,7 @@ struct MyTrainParams : public TrainParams
   MyTrainParams(){}
   MyTrainParams(const std::string file) : TrainParams(file) {}
 
+  inline std::string ExperimentString() { return name + "@" + CurrentTimeString("%F_%H-%M-%S"); }
 
   SAIGA_PARAM_STRUCT_FUNCTIONS;
 
