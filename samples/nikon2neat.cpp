@@ -15,6 +15,7 @@
 
 using namespace Saiga;
 
+#include <cctype>
 
 
 struct XTekCT : public ParamsBase
@@ -323,8 +324,26 @@ int main(int argc, const char* argv[])
     std::string input_base  = "scenes/";
     std::string output_base = "scenes/";
     // Convert("Pepper", input_base + "/Pepper", output_base + "/pepper", ivec2(50, 20), ivec2(1880, 1400), 1);
-    Convert("Test", input_base + "/Test", output_base + "/test", ivec2(-1, -1), ivec2(-1, -1), 1);
     // Convert(input_base + "/Teapot_90kV", output_base + "/teapot", ivec2(-1, -1), ivec2(-1, 1350), 1, 17500);
+    // Convert("Test", input_base + "/Test", output_base + "/test", ivec2(-1, -1), ivec2(-1, -1), 1);
+
+    if (argc != 2){
+        std::cout << "Usage: ./nikon2neat <scene_name>" << std::endl;
+        return 1;
+    }
+
+    std::string scene_name = argv[1];
+    std::cout << "Converting scene: " << scene_name << std::endl;
+    if (!std::isupper(scene_name[0])){
+        std::cout << "Raw nikon scene name should start with a capital letter" << std::endl;
+        return 1;
+    }
+
+    std::string out_scene_name(scene_name);
+    out_scene_name[0] = std::tolower(out_scene_name[0]);
+
+    Convert(scene_name, input_base + scene_name, output_base + out_scene_name, ivec2(-1, -1), ivec2(-1, -1), 1);
+
     return 0;
 //    Convert(input_base + "/marine_decoration", output_base + "/marine_decoration", ivec2(-1, -1), ivec2(-1, 1400), 1.);
 //    Convert(input_base + "/monument", output_base + "/monument", ivec2(-1, -1), ivec2(-1, 1500), 1.);
