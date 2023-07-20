@@ -54,13 +54,18 @@ make -j10
 
 * Run dataset conversion script:
 ```sh
-CBCTREC_CONFIG=... python dataConversion --ct-path <path-to-dicom> --ds-path <path-to-dataset> [--half-range]
+python dataConversion.py \
+    --name <name> \
+    --ds-path <path-to-dataset> \
+    [--ct-path <path-to-dicom/path-to-old-npz>] \
+    [--half-range]
 ```
 
 * Run reconstruction
 ```sh
 export LD_LIBRARY_PATH=~/miniconda3/envs/neat/lib
-./build/bin/nikon2neat && ./build/bin/reconstruct configs/exp/<...>.ini
+./build/bin/nikon2neat <name>
+./build/bin/reconstruct configs/exp/<...>.ini
 ```
  <!-- ```shell
 mkdir scenes
@@ -76,15 +81,15 @@ export LD_LIBRARY_PATH=~/anaconda3/envs/neat/lib
 ./build/bin/reconstruct configs/pepper.ini
  ``` -->
 * The result will be written to NeAT/Experiments
-* Use tensorboard for easy visualization:
+<!-- * Use tensorboard for easy visualization:
 ```shell
 conda activate neat
 cd NeAT
 tensorboard --logdir Experiments/ --samples_per_plugin images=100
-```
+``` -->
 
 * Evaluation
 ```sh
-python eval.py --exp <exp_dir> --ds <cbctrec_dataset.npz>
+python eval.py --exp Experiments/<output_dir> --ds <cbctrec_dataset.npz>
 ```
 * The result will be written to NeAT/Experiments/<exp_dir>/eval

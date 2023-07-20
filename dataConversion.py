@@ -262,7 +262,7 @@ if __name__ == "__main__":
     # split dataset
     if not os.path.exists(neat_dst_dir):
         os.mkdir(neat_dst_dir)
-    exp_n_images = [15, 20, 30, 40, 60]
+    exp_n_images = [10, 15, 20, 30, 40, 60]
     n_total_projection = ds["config"].data_simulation_config["n_total_projection"]
 
     if HALF_RANGE:
