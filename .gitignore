@@ -19,5 +19,8 @@ Experiments/
 scenes
 scenes/
 
+External/libtorch
+__pycache__
+
 configs/exp/*
 !configs/exp/.gitkeep

@@ -170,6 +170,7 @@ if __name__ == "__main__":
     parser.add_argument("--ct-path", type=str, default=None, help="Path to the CBCT data (DICOM) or an existing npz cbctrec dataset\
                         If specified, will first generate a new cbctrec dataset to ensure full circular range from the CT data")
     parser.add_argument("--half-range", action="store_true", help="Whether to use half range data, if the dataset is full range, will only use the first half of the projections")
+    parser.add_argument("--yes", action="store_true", help="Overwrite existing dataset without asking")
     args = parser.parse_args()
 
     NAME: str = args.name
@@ -216,7 +217,7 @@ if __name__ == "__main__":
     nikon_dst_dir = os.path.join(__NEAT_HOME, "scenes", NAME)           # save nikon version of the dataset
     neat_dst_dir = os.path.join(__NEAT_HOME, "scenes", NAME.lower())    # save neat version of the dataset
     if os.path.exists(nikon_dst_dir) or os.path.exists(neat_dst_dir):
-        if input(f"Dataset {NAME} already exists, overwrite? (y/n)") == "y":
+        if args.yes or input(f"Dataset {NAME} already exists, overwrite? (y/n)") == "y":
             if os.path.exists(nikon_dst_dir):
                 shutil.rmtree(nikon_dst_dir)
                 print(f"Removed {nikon_dst_dir}")
