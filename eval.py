@@ -5,7 +5,8 @@ import os, argparse, json
 from cbctrec.dataPrep import loadDataset
 from cbctrec.utils.vis import saveVideo
 from cbctrec.eval import Measure_Quality
-
+from PIL import Image
+normalize = lambda x: (x-x.min())/(x.max()-x.min())
 # tgt_vol_pth = "/storage/Data/cbctrec_data/test-half.npz"
 # out_vol_pth = "/storage/NeAT/Experiments/2023-07-17_15-07-08_default/ep0002/volume_test/volume.pt"
 __NEAT_HOME = os.path.dirname(os.path.abspath(__file__))
@@ -55,6 +56,11 @@ def evalVolume(tgt_vol_pth: str, out_vol_pth: str, out_dir: str = OUT_DIR, save_
         saveVideo(vis_out, os.path.join(out_dir, "compare.mp4"), fps=10)
 
     print("Results saved to: ", out_dir)
+    
+    n_slice= 127
+    slice_neat  = normalize(out_vol_np[n_slice])*255  
+    slice_neat_image= Image.fromarray(np.uint8(slice_neat))
+    slice_neat_image.save(os.path.join(out_dir, "slice_neat"+str(n_slice)+".png"))
 
 def autoCalibrate(vol: torch.Tensor, aim_vol: torch.Tensor, sample_step: int = 2, apply_shift: bool = False):
     """
@@ -112,7 +118,7 @@ if __name__ == "__main__":
     epoch_dirs = [os.path.join(exp_dir, d) for d in os.listdir(exp_dir) if os.path.isdir(os.path.join(exp_dir, d)) and d.startswith("ep")]
     epoch_dirs.sort()
     last_epoch_dir = epoch_dirs[-1]
-
+    
     for dir_pth in epoch_dirs:
         out_vol_pth = os.path.join(dir_pth, "volume", "volume.pt")
         if os.path.exists(out_vol_pth):
