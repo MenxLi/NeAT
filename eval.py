@@ -62,6 +62,37 @@ def evalVolume(tgt_vol_pth: str, out_vol_pth: str, out_dir: str = OUT_DIR, save_
     slice_neat_image= Image.fromarray(np.uint8(slice_neat))
     slice_neat_image.save(os.path.join(out_dir, "slice_neat"+str(n_slice)+".png"))
 
+def evalProjections(proj_dir, out_dir: str = OUT_DIR, save_video: bool = True):
+    if not os.path.exists(out_dir):
+        os.mkdir(out_dir)
+    proj_pth = None
+    tgt_pth = None
+    for f in os.listdir(proj_dir):
+        if f == "projections.pt":
+            proj_pth = os.path.join(proj_dir, f)
+        if f == "targets.pt":
+            tgt_pth = os.path.join(proj_dir, f)
+    assert proj_pth is not None and tgt_pth is not None
+    projections = torch.jit.load(proj_pth).state_dict()["0"]
+    targets = torch.jit.load(tgt_pth).state_dict()["0"]
+
+    # only use half of the projections
+    projections = projections[:projections.shape[0]//2, :, :]
+    targets = targets[:targets.shape[0]//2, :, :]
+
+    projections_np = projections.detach().cpu().numpy()
+    targets_np = targets.detach().cpu().numpy()
+
+    # TODO: evaluate the projections
+    # ...
+
+    # save video
+    if save_video:
+        print("Saving video to: ", os.path.join(out_dir, "compare_proj.mp4"))
+        concat = np.concatenate((projections_np, targets_np), axis=2)
+        saveVideo(concat, os.path.join(out_dir, "compare_proj.mp4"), fps=10)
+
+
 def autoCalibrate(vol: torch.Tensor, aim_vol: torch.Tensor, sample_step: int = 2, apply_shift: bool = False):
     """
     Automatically calibrate the volume to match the aim_vol.
@@ -123,7 +154,13 @@ if __name__ == "__main__":
         out_vol_pth = os.path.join(dir_pth, "volume", "volume.pt")
         if os.path.exists(out_vol_pth):
             evalVolume(args.ds, out_vol_pth, out_dir=os.path.join(exp_dir, "eval-{}".format(os.path.basename(dir_pth))) , save_video=False)
+        proj_dir = os.path.join(dir_pth, "projections")
+        if os.path.exists(proj_dir):
+            evalProjections(proj_dir, out_dir=os.path.join(exp_dir, "eval-{}".format(os.path.basename(dir_pth))), save_video=False)
 
     out_vol_pth = os.path.join(last_epoch_dir, "volume", "volume.pt")
     if os.path.exists(out_vol_pth):
         evalVolume(args.ds, out_vol_pth, out_dir=os.path.join(exp_dir, "eval"), save_video=True)
+    proj_dir = os.path.join(last_epoch_dir, "projections")
+    if os.path.exists(proj_dir):
+        evalProjections(proj_dir, out_dir=os.path.join(exp_dir, "eval"), save_video=True)

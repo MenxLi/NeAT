@@ -40,7 +40,7 @@ export CUDAHOSTCXX=g++-9
 mkdir build
 cd build
 cmake -DCMAKE_PREFIX_PATH="${CONDA}/lib/python3.8/site-packages/torch/;${CONDA}" ..
-make -j10
+make -j$(grep -c ^processor /proc/cpuinfo)
 
 ```
 

@@ -1,9 +1,8 @@
 ﻿/**
-* Copyright (c) 2022 Darius Rückert
-* Licensed under the GPL v3 License.
-* See LICENSE file for more information.
+Reconstruction with view synthesis
 */
 #include "saiga/core/image/freeimage.h"
+#include "saiga/core/math/Types.h"
 #include "saiga/core/math/random.h"
 #include "saiga/core/time/time.h"
 #include "saiga/core/util/ConsoleColor.h"
@@ -16,6 +15,13 @@
 #include "Settings.h"
 #include "data/Dataloader.h"
 #include "utils/utils.h"
+#include <ATen/MethodOperators.h>
+#include <ATen/core/boxing/KernelFunction.h>
+#include <c10/core/TensorOptions.h>
+#include <memory>
+#include <string>
+#include <torch/types.h>
+#include <vector>
 
 #include "build_config.h"
 #include "geometry/geometry_ex_ex.h"
@@ -168,7 +174,7 @@ class Trainer
                         std::filesystem::create_directories(volume_out_dir);
 
                         int out_size = params->train_params.output_volume_size;
-                        if (epoch_id == params->train_params.num_epochs || (epoch_id+1) % 10 == 0)
+                        if (epoch_id == params->train_params.num_epochs || (epoch_id % 10 == 0 && epoch_id > 0))
                         {
                             // double resolution in last epoch
                             out_size *= 2;
@@ -180,6 +186,8 @@ class Trainer
                             // std::cout << "saving volume as .hdr..." << std::endl;
                             // SaveHDRImageTensor(volume_density, volume_out_dir + "/volume.hdr");
 
+                            // save projections
+                            saveProjection(ts, scene->scene_name, epoch_id);
                             // save volume density as torch file
                             std::cout << "saving volume as .pt..." << std::endl;
                             torch::save(volume_density, volume_out_dir + "/volume.pt");
@@ -506,6 +514,133 @@ class Trainer
 
         std::cout << ConsoleColor::GREEN << "> Volume Loss " << name << " | SSIM " << epoch_loss_train_ssim << " PSNR "
                   << epoch_loss_train_psnr << ConsoleColor::RESET << std::endl;
+    }
+
+    void saveProjection(TrainScene& ts, std::string name, int epoch_id){
+        auto scene           = ts.scene;
+        auto tree            = ts.tree;
+        auto neural_geometry = ts.neural_geometry;
+
+        neural_geometry->train(epoch_id, false);
+        scene->train(false);
+        torch::NoGradGuard ngg;
+
+        int out_w = scene->cameras.front().w;
+        int out_h = scene->cameras.front().h;
+
+        // init images
+        int num_images = scene->frames.size();;        
+        std::vector<torch::Tensor> projection_images(scene->frames.size());
+        std::vector<torch::Tensor> target_images(scene->frames.size());
+        for (int i = 0; i < num_images; ++i)
+        {
+            projection_images[i] = torch::zeros({1, out_h, out_w});
+            target_images[i]     = torch::zeros({1, out_h, out_w});
+        }
+
+        int rows_per_batch = std::max(params->train_params.batch_size / out_w, 1);
+        auto options = torch::data::DataLoaderOptions().batch_size(1).drop_last(false).workers(params->train_params.num_workers_eval);
+
+        // gather valid indices
+        std::unique_ptr<int[]> __indices_candidate(new int[scene->frames.size()]);
+        int __indices_count = 0;
+        for (int i = 0; i < scene->frames.size(); ++i)
+        {
+            if (scene->frames[i]->projection.defined()){
+                __indices_candidate[i] = i;
+                __indices_count++;
+            }
+            else{
+                __indices_candidate[i] = -1;
+            }
+        }
+        auto indices = std::vector<int>(__indices_count);
+        for (int i = 0; i < __indices_count; ++i)
+        {
+            if(__indices_candidate[i] != -1){
+                indices[i] = __indices_candidate[i];
+            }
+        }
+        __indices_candidate.reset();
+
+        auto dataset     = RowRaybasedSampleDataset(indices, scene, params, out_w, out_h, rows_per_batch);
+        auto data_loader = torch::data::make_data_loader<torch::data::samplers::SequentialSampler>(dataset, options);
+        {
+            // optimize network with fixed structure
+            Saiga::ProgressBar bar(std::cout,
+                                   "(Save projections)" + name + " (" + std::to_string(out_w) + "x" + std::to_string(out_h) + ") " +
+                                       std::to_string(epoch_id) + " |",
+                                   out_w * out_h * indices.size(), 30, false, 1000, "ray");
+
+            for (RowSampleData sample_data : (*data_loader))
+            {
+                // std::cout << "sample_data rows: " << sample_data.row_start << ", " << sample_data.row_end << std::endl;
+                // std::cout << "image_id: " << sample_data.image_id << std::endl;
+                RayList rays =
+                    scene->GetRays(sample_data.pixels.uv, sample_data.pixels.image_id, sample_data.pixels.camera_id);
+                SampleList all_samples =
+                    tree->CreateSamplesForRays(rays, params->octree_params.max_samples_per_node, false);
+
+                auto predicted_image =
+                    neural_geometry->ComputeImage(all_samples, scene->num_channels, sample_data.NumPixels());
+                predicted_image =
+                    scene->tone_mapper->forward(predicted_image, sample_data.pixels.uv, sample_data.pixels.image_id);
+
+                if (sample_data.pixels.target_mask.defined())
+                {
+                    // Multiply by mask so the loss of invalid pixels is 0
+                    predicted_image           = predicted_image * sample_data.pixels.target_mask;
+                    sample_data.pixels.target = sample_data.pixels.target * sample_data.pixels.target_mask;
+                }
+
+                CHECK_EQ(predicted_image.sizes(), sample_data.pixels.target.sizes());
+
+                int image_id = sample_data.image_id;
+
+                projection_images[image_id] = projection_images[image_id].cpu();
+                target_images[image_id]     = target_images[image_id].cpu();
+
+                auto prediction_rows = predicted_image.reshape({predicted_image.size(0), -1, out_w});
+                auto target_rows = sample_data.pixels.target.reshape({sample_data.pixels.target.size(0), -1, out_w});
+
+                projection_images[image_id].slice(1, sample_data.row_start, sample_data.row_end) = prediction_rows;
+                target_images[image_id].slice(1, sample_data.row_start, sample_data.row_end)     = target_rows;
+
+                bar.addProgress(sample_data.NumPixels());
+            }
+        }
+
+        // Save projection and target images
+        // std::cout << "Preparing projection and target images..." << std::endl;
+        std::string ep_str = Saiga::leadingZeroString(epoch_id, 4);
+        auto ep_dir = experiment_dir + "ep" + ep_str + "/";
+        auto ep_proj_dir = ep_dir + "projections/";
+        std::filesystem::create_directories(ep_proj_dir);
+
+        // std::cout << "Copying projection and target images to CPU... total num_images" << num_images << std::endl;
+        std::unique_ptr<torch::Tensor[]> proj_tensor(new torch::Tensor[num_images]);
+        std::unique_ptr<torch::Tensor[]> target_tensor(new torch::Tensor[num_images]);
+        for (int i = 0; i < num_images; ++i)
+        {
+            proj_tensor[i] = projection_images[i].clone().detach().cpu();
+            target_tensor[i] = target_images[i].clone().detach().cpu();
+        }
+        at::TensorList proj_list(proj_tensor.get(), num_images);
+        at::TensorList target_list(target_tensor.get(), num_images);
+        // std::cout << "Concatenating projection and target images..." << std::endl;
+        torch::save(torch::cat(proj_list, 0), ep_proj_dir + "projections.pt");
+        torch::save(torch::cat(target_list, 0), ep_proj_dir + "targets.pt");
+        std::cout << "Done." << std::endl;
+
+        // std::cout << "Saving projection and target images..." << std::endl;
+        for (int i = 0; i < num_images; ++i)
+        {
+            TensorToImage<unsigned char>(
+                torch::cat({proj_tensor[i], target_tensor[i]}, 2)
+                ).save(ep_proj_dir + "projection_" + std::to_string(i) + ".png");
+        }
+        proj_tensor.reset();
+        target_tensor.reset();
     }
 
     double EvalStepProjection(TrainScene& ts, std::vector<int> indices, std::string name, int epoch_id,
