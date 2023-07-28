@@ -15,6 +15,7 @@ DefaultBuildType(RelWithDebInfo)
 message("Build Options")
 
 OptionsHelper(HEADLESS "Skips the viewer and other apps that require a window." OFF)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 ############# Required LIBRARIES ###############
 

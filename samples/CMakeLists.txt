@@ -19,3 +19,5 @@ add_app(nikon2neat)
 add_executable(reconstruct reconstruct.cpp)
 add_app(reconstruct)
 
+add_executable(viewSynthesis viewSynthesis.cpp)
+add_app(viewSynthesis)

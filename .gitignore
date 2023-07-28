@@ -24,3 +24,6 @@ __pycache__
 
 configs/exp/*
 !configs/exp/.gitkeep
+
+.cache
+compile_commands.json
