@@ -83,7 +83,7 @@ def evalProjections(proj_dir, out_dir: str = OUT_DIR, save_video: bool = True):
     projections_np = projections.detach().cpu().numpy()
     targets_np = targets.detach().cpu().numpy()
 
-    # TODO: evaluate the projections
+    # TODO: do something with the projections
     # ...
 
     # save video

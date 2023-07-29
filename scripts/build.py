@@ -31,7 +31,7 @@ if __name__ == '__main__':
     # set LD_LIBRARY_PATH
     os.environ['LD_LIBRARY_PATH'] = os.path.join(os.environ['HOME'], 'miniconda3/envs/neat/lib')
 
-    tasks = []
+    # tasks = []
     # _p = 'p1'; tasks.append(runOnGPU(buildDataset, 0)(_p, SRC_DATASETS[_p]))
     # _p = 'p3'; tasks.append(runOnGPU(buildDataset, 1)(_p, SRC_DATASETS[_p]))
     # _p = 'p4'; tasks.append(runOnGPU(buildDataset, 2)(_p, SRC_DATASETS[_p]))
@@ -40,9 +40,14 @@ if __name__ == '__main__':
     # _p = 'p7'; tasks.append(runOnGPU(buildDataset, 5)(_p, SRC_DATASETS[_p]))
     # _p = 'p8'; tasks.append(runOnGPU(buildDataset, 6)(_p, SRC_DATASETS[_p]))
     # _p = 'p9'; tasks.append(runOnGPU(buildDataset, 7)(_p, SRC_DATASETS[_p]))
+    # _p = 'p10'; tasks.append(runOnGPU(buildDataset, 0)(_p, SRC_DATASETS[_p]))
+    # _p = 'p11'; tasks.append(runOnGPU(buildDataset, 1)(_p, SRC_DATASETS[_p]))
+    # for t in tasks:
+    #     t.join()
 
-    _p = 'p10'; tasks.append(runOnGPU(buildDataset, 0)(_p, SRC_DATASETS[_p]))
-    _p = 'p11'; tasks.append(runOnGPU(buildDataset, 1)(_p, SRC_DATASETS[_p]))
-    for t in tasks:
-        t.join()
+    # for _p in SRC_DATASETS.keys():
+    #     buildDataset(_p, SRC_DATASETS[_p])
+    # startGPUTasks([0, 1, 2, 3, 4, 5, 6, 7])
+
+    buildDataset('p1', SRC_DATASETS['p1'])
     
