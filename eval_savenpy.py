@@ -57,7 +57,7 @@ def evalVolume(tgt_vol_pth: str, out_vol_pth: str, out_dir: str = OUT_DIR, save_
 
     print("Results saved to: ", out_dir)
     
-    n_slice= 165
+    n_slice= 127
     slice_neat  = normalize(out_vol_np[n_slice])*255  
     slice_neat_image= Image.fromarray(np.uint8(slice_neat))
     slice_neat_image.save(os.path.join(out_dir, "slice_neat"+str(n_slice)+".png"))
@@ -83,8 +83,20 @@ def evalProjections(proj_dir, out_dir: str = OUT_DIR, save_video: bool = True):
     projections_np = projections.detach().cpu().numpy()
     targets_np = targets.detach().cpu().numpy()
 
-    # TODO: do something with the projections
-    # ...
+    #do something with the projections
+    for i in [0,49,119]:
+        normalize = lambda x: (x-x.min())/(x.max()-x.min())
+        proj_i = normalize(projections_np[i])*255  
+        proj_i_image= Image.fromarray(np.uint8(proj_i))
+        proj_i_image.save(os.path.join(out_dir, "proj_"+str(i)+".png"))
+        target_i = normalize(targets_np[i])*255  
+        target_i_image= Image.fromarray(np.uint8(target_i))
+        target_i_image.save(os.path.join(out_dir, "target_"+str(i)+".png"))
+        
+    with open (os.path.join(out_dir, "projection_np.npy"), 'wb') as f:
+        np.save(f,projections_np)
+    with open (os.path.join(out_dir, "target_np.npy"), 'wb') as f:
+        np.save(f,targets_np)    
 
     # save video
     if save_video:

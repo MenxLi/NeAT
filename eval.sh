@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Find all folders starting with "p1" in the current directory
-for folder in /remote-home/limengxun/tujie/NeAT/Experiments/p1_*
+for folder in /remote-home/limengxun/tujie/NeAT/Experiments/p1_**@2023-07-28*
 do
     # Check if the folder exists and is a directory
     if [ -d "$folder" ]; then
@@ -42,7 +42,7 @@ do
     fi
 done
 
-for folder in /remote-home/limengxun/tujie/NeAT/Experiments/p7_*
+for folder in /remote-home/limengxun/tujie/NeAT/Experiments/p7_20*
 do
     # Check if the folder exists and is a directory
     if [ -d "$folder" ]; then
